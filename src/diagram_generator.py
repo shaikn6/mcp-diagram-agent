@@ -82,7 +82,7 @@ def _parse_claude_response(raw: str) -> dict[str, Any]:
     """Parse Claude's JSON response, stripping any accidental markdown fences."""
     cleaned = strip_json_fences(raw)
     try:
-        return json.loads(cleaned)
+        return dict(json.loads(cleaned))
     except json.JSONDecodeError as exc:
         logger.error("Failed to parse Claude response as JSON: %s", exc)
         logger.debug("Raw response: %s", raw)
@@ -247,7 +247,7 @@ class DiagramGenerator:
             ],
         )
 
-        raw_text: str = message.content[0].text  # type: ignore[attr-defined]
+        raw_text: str = message.content[0].text  # type: ignore[attr-defined,union-attr]
         logger.debug("Claude response (%d chars)", len(raw_text))
 
         spec = _parse_claude_response(raw_text)
