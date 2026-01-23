@@ -115,7 +115,7 @@ def _layout_nodes(
             continue
         for row_idx, node in enumerate(layer_nodes):
             y = 80.0 + row_idx * (node_h + row_gap)
-            positions[node["id"]] = (col_x, y)
+            positions[node.get("id", f"node_{row_idx}")] = (col_x, y)
         col_x += node_w + col_gap
 
     return positions
