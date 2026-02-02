@@ -1,40 +1,29 @@
 ---
 name: Bug Report
-about: Something broken? Help us fix it.
-labels: ["bug", "triage"]
+about: Report a bug or unexpected behavior
+labels: bug
 ---
 
-## Bug Description
-
-<!-- A clear, concise description of the bug. -->
+## Description
+A clear description of the bug.
 
 ## Steps to Reproduce
-
-1. Send request: `...`
-2. With payload: `...`
-3. Observe: `...`
+1. 
+2. 
+3. 
 
 ## Expected Behavior
 
-<!-- What should happen. -->
 
 ## Actual Behavior
 
-<!-- What actually happens. Include error messages and stack traces. -->
 
 ## Environment
-
+- Python version:
 - OS:
-- Python version: `python --version`
-- Package version: `pip show mcp-diagram-agent`
-- Claude model used:
+- Package version:
 
-## Minimal Reproducer
-
+## Logs / Stack Trace
 ```python
-# Paste the smallest code that triggers the bug
+# paste here
 ```
-
-## Logs / Screenshots
-
-<!-- Paste relevant logs here (sanitize any API keys!) -->
