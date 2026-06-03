@@ -10,7 +10,7 @@ from typing import Any
 def make_element_id(prefix: str, index: int) -> str:
     """Generate a stable, unique element ID."""
     raw = f"{prefix}-{index}-{time.time_ns()}"
-    return hashlib.sha1(raw.encode()).hexdigest()[:16]
+    return hashlib.sha1(raw.encode(), usedforsecurity=False).hexdigest()[:16]
 
 
 def clamp(value: float, lo: float, hi: float) -> float:
@@ -31,7 +31,7 @@ def grid_layout(
 ) -> list[tuple[float, float]]:
     """Return (x, y) positions for *count* elements arranged in a grid.
 
-    Each cell is ``cell_w × cell_h`` with ``padding_x / padding_y`` gaps.
+    Each cell is ``cell_w x cell_h`` with ``padding_x / padding_y`` gaps.
     """
     positions: list[tuple[float, float]] = []
     for i in range(count):
