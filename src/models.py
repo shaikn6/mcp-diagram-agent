@@ -55,12 +55,18 @@ class ExcalidrawElement(BaseModel):
     opacity: int = Field(default=100, ge=0, le=100, description="Opacity 0-100")
     text: str = Field(default="", description="Text content for text/labeled elements")
     fontSize: float = Field(default=16.0, ge=4, description="Font size in pixels")
-    fontFamily: int = Field(default=1, description="Font family (1=Virgil, 2=Helvetica, 3=Cascadia)")
+    fontFamily: int = Field(
+        default=1, description="Font family (1=Virgil, 2=Helvetica, 3=Cascadia)"
+    )
     textAlign: TextAlign = Field(default=TextAlign.CENTER, description="Text alignment")
     verticalAlign: str = Field(default="middle", description="Vertical alignment")
-    startBinding: dict[str, Any] | None = Field(default=None, description="Start binding for arrows")
+    startBinding: dict[str, Any] | None = Field(
+        default=None, description="Start binding for arrows"
+    )
     endBinding: dict[str, Any] | None = Field(default=None, description="End binding for arrows")
-    points: list[list[float]] | None = Field(default=None, description="Points for line/arrow elements")
+    points: list[list[float]] | None = Field(
+        default=None, description="Points for line/arrow elements"
+    )
     label: dict[str, Any] | None = Field(default=None, description="Label configuration for arrows")
 
     @field_validator("strokeColor", "backgroundColor")
@@ -190,7 +196,9 @@ class DiagramRequest(BaseModel):
         min_length=10,
         max_length=4000,
         description="Natural language description of the system architecture",
-        examples=["A microservices architecture with API gateway, auth service, and PostgreSQL database"],
+        examples=[
+            "A microservices architecture with API gateway, auth service, and PostgreSQL database"
+        ],
     )
     style: str = Field(
         default="technical",
