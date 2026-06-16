@@ -78,7 +78,7 @@ jobs:
           ANTHROPIC_API_KEY: "sk-ant-test-key-for-ci"
         run: |
           pytest --cov=src --cov-report=xml --cov-report=term-missing \
-            --cov-fail-under=80 -v
+            --cov-fail-under=95 -v
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11'
