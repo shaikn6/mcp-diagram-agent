@@ -75,7 +75,7 @@ class ExcalidrawElement(BaseModel):
 
     def model_dump_excalidraw(self) -> dict[str, Any]:
         """Return a dict in Excalidraw-compatible format."""
-        base = {
+        base: dict[str, Any] = {
             "id": self.id,
             "type": self.type.value,
             "x": self.x,
