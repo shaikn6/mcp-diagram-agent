@@ -146,6 +146,7 @@ class TestBuildElements:
         elements = _build_elements(spec)
         arrow = next(el for el in elements if el.type == ElementType.ARROW)
         from src.models import StrokeStyle
+
         assert arrow.strokeStyle == StrokeStyle.DASHED
 
 
@@ -222,7 +223,10 @@ class TestDiagramGenerator:
         basic_request: DiagramRequest,
     ) -> None:
         response = generator.generate(basic_request)
-        assert "architecture" in response.description_summary.lower() or len(response.description_summary) > 5
+        assert (
+            "architecture" in response.description_summary.lower()
+            or len(response.description_summary) > 5
+        )
 
     def test_model_property(self, generator: DiagramGenerator) -> None:
         assert generator.model == "claude-3-5-sonnet-20241022"

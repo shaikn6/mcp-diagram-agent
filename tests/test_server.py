@@ -36,7 +36,9 @@ def _make_mock_response(element_count: int = 4) -> DiagramResponse:
         for i in range(element_count)
     ]
     doc = ExcalidrawDocument(elements=elements)
-    return DiagramResponse.from_document(doc, summary="Test diagram", model="claude-3-5-sonnet-20241022")
+    return DiagramResponse.from_document(
+        doc, summary="Test diagram", model="claude-3-5-sonnet-20241022"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +121,9 @@ class TestGenerateEndpoint:
         resp = client_with_mock.post("/generate", json={})
         assert resp.status_code == 422
 
-    def test_generate_max_elements_out_of_range_returns_422(self, client_with_mock: TestClient) -> None:
+    def test_generate_max_elements_out_of_range_returns_422(
+        self, client_with_mock: TestClient
+    ) -> None:
         payload = {
             "description": "A web app with load balancer and database backend",
             "max_elements": 999,
