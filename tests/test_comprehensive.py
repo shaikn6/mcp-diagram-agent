@@ -3,6 +3,7 @@
 Covers: models (all validators/methods), utils (all functions/branches),
 diagram_generator (all paths), server (all FastAPI + MCP paths), edge cases.
 """
+
 from __future__ import annotations
 
 import json
@@ -35,16 +36,20 @@ class TestExcalidrawElementValidation:
         assert el.strokeColor == "#ff0000"
 
     def test_transparent_background_allowed(self):
-        el = ExcalidrawElement(id="x", type=ElementType.RECTANGLE, x=0, y=0, backgroundColor="transparent")
+        el = ExcalidrawElement(
+            id="x", type=ElementType.RECTANGLE, x=0, y=0, backgroundColor="transparent"
+        )
         assert el.backgroundColor == "transparent"
 
     def test_invalid_stroke_color_raises(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             ExcalidrawElement(id="x", type=ElementType.RECTANGLE, x=0, y=0, strokeColor="red")
 
     def test_invalid_bg_color_raises(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             ExcalidrawElement(id="x", type=ElementType.RECTANGLE, x=0, y=0, backgroundColor="blue")
 
@@ -62,8 +67,7 @@ class TestExcalidrawElementValidation:
 class TestExcalidrawElementDump:
     def test_rectangle_dump(self):
         el = ExcalidrawElement(
-            id="rect1", type=ElementType.RECTANGLE, x=0, y=0,
-            text="Hello", width=200, height=100
+            id="rect1", type=ElementType.RECTANGLE, x=0, y=0, text="Hello", width=200, height=100
         )
         d = el.model_dump_excalidraw()
         assert d["id"] == "rect1"
@@ -86,9 +90,7 @@ class TestExcalidrawElementDump:
         assert d["roundness"] is None
 
     def test_text_element_dump(self):
-        el = ExcalidrawElement(
-            id="t1", type=ElementType.TEXT, x=0, y=0, text="Label"
-        )
+        el = ExcalidrawElement(id="t1", type=ElementType.TEXT, x=0, y=0, text="Label")
         d = el.model_dump_excalidraw()
         assert d["type"] == "text"
         assert d["text"] == "Label"
@@ -98,8 +100,13 @@ class TestExcalidrawElementDump:
 
     def test_arrow_element_dump(self):
         el = ExcalidrawElement(
-            id="a1", type=ElementType.ARROW, x=0, y=0, width=100, height=50,
-            points=[[0.0, 0.0], [100.0, 50.0]]
+            id="a1",
+            type=ElementType.ARROW,
+            x=0,
+            y=0,
+            width=100,
+            height=50,
+            points=[[0.0, 0.0], [100.0, 50.0]],
         )
         d = el.model_dump_excalidraw()
         assert d["type"] == "arrow"
@@ -108,9 +115,7 @@ class TestExcalidrawElementDump:
         assert d["points"] == [[0.0, 0.0], [100.0, 50.0]]
 
     def test_arrow_default_points(self):
-        el = ExcalidrawElement(
-            id="a2", type=ElementType.ARROW, x=0, y=0, width=100, height=50
-        )
+        el = ExcalidrawElement(id="a2", type=ElementType.ARROW, x=0, y=0, width=100, height=50)
         d = el.model_dump_excalidraw()
         assert d["points"] is not None
         assert d["points"][0] == [0, 0]
@@ -122,10 +127,7 @@ class TestExcalidrawElementDump:
         assert d["endArrowhead"] is None
 
     def test_arrow_with_label(self):
-        el = ExcalidrawElement(
-            id="a3", type=ElementType.ARROW, x=0, y=0,
-            label={"text": "HTTP"}
-        )
+        el = ExcalidrawElement(id="a3", type=ElementType.ARROW, x=0, y=0, label={"text": "HTTP"})
         d = el.model_dump_excalidraw()
         assert d.get("label") == {"text": "HTTP"}
 
@@ -167,26 +169,31 @@ class TestDiagramRequest:
 
     def test_invalid_style_raises(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             DiagramRequest(description="A valid description here", style="invalid")
 
     def test_description_too_short_raises(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             DiagramRequest(description="short")
 
     def test_description_too_long_raises(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             DiagramRequest(description="x" * 4001)
 
     def test_max_elements_out_of_range_raises(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             DiagramRequest(description="A valid description here", max_elements=100)
 
     def test_max_elements_too_low_raises(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             DiagramRequest(description="A valid description here", max_elements=1)
 
@@ -203,7 +210,9 @@ class TestDiagramResponse:
     def test_from_document(self):
         el = ExcalidrawElement(id="e1", type=ElementType.RECTANGLE, x=0, y=0)
         doc = ExcalidrawDocument(elements=[el])
-        resp = DiagramResponse.from_document(doc, summary="Test summary", model="claude-3-5-sonnet-20241022")
+        resp = DiagramResponse.from_document(
+            doc, summary="Test summary", model="claude-3-5-sonnet-20241022"
+        )
         assert resp.element_count == 1
         assert resp.description_summary == "Test summary"
         assert resp.model_used == "claude-3-5-sonnet-20241022"
@@ -389,13 +398,13 @@ class TestBuildArrowPoints:
         # src right edge: (100, 40), dst left edge: (200, 40)
         assert pts[0] == [0.0, 0.0]
         assert pts[1][0] == 100.0  # dx = 200 - 100 = 100
-        assert pts[1][1] == 0.0   # dy = 40 - 40 = 0
+        assert pts[1][1] == 0.0  # dy = 40 - 40 = 0
 
     def test_vertical_arrow(self):
         pts = build_arrow_points(0, 0, 100, 80, 0, 200, 100, 80)
         # src center-right: (100, 40), dst center-left: (0, 240)
         assert pts[1][0] == -100.0  # dx = 0 - 100 = -100
-        assert pts[1][1] == 200.0   # dy = 240 - 40 = 200
+        assert pts[1][1] == 200.0  # dy = 240 - 40 = 200
 
     def test_returns_two_points(self):
         pts = build_arrow_points(10, 20, 100, 80, 300, 20, 100, 80)
@@ -568,7 +577,9 @@ class TestBuildElementsExtended:
         """Node not in positions dict falls back gracefully."""
         spec = {
             "summary": "fallback",
-            "nodes": [{"id": "orphan", "label": "Orphan", "layer": "service", "shape": "rectangle"}],
+            "nodes": [
+                {"id": "orphan", "label": "Orphan", "layer": "service", "shape": "rectangle"}
+            ],
             "edges": [],
         }
         elements = _build_elements(spec)
@@ -666,7 +677,9 @@ class TestDiagramGeneratorExtended:
         gen = DiagramGenerator(client=client)
         req = DiagramRequest(description="Simple architecture without summary field")
         resp = gen.generate(req)
-        assert "architecture" in resp.description_summary.lower() or len(resp.description_summary) > 5
+        assert (
+            "architecture" in resp.description_summary.lower() or len(resp.description_summary) > 5
+        )
 
     @pytest.mark.asyncio
     async def test_agenerate_calls_generate(self):
@@ -691,7 +704,9 @@ class TestDiagramGeneratorExtended:
         gen = DiagramGenerator(client=client)
         req = DiagramRequest(description="Large system with many nodes description")
         # max_elements=3 (min allowed by pydantic)
-        req_small = DiagramRequest(description="Large system with many nodes description", max_elements=3)
+        req_small = DiagramRequest(
+            description="Large system with many nodes description", max_elements=3
+        )
         resp = gen.generate(req_small)
         assert resp.element_count <= 3
 
@@ -707,15 +722,18 @@ from src.server import _get_generator, call_tool, create_app, list_tools
 class TestGetGenerator:
     def test_returns_generator_instance(self):
         from src.diagram_generator import DiagramGenerator
+
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
             # Reset the global
             import src.server as server_mod
+
             server_mod._generator = None
             gen = _get_generator()
             assert isinstance(gen, DiagramGenerator)
 
     def test_returns_same_instance_on_second_call(self):
         import src.server as server_mod
+
         server_mod._generator = None
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
             gen1 = _get_generator()
@@ -724,12 +742,13 @@ class TestGetGenerator:
 
     def test_uses_claude_model_env(self):
         import src.server as server_mod
+
         server_mod._generator = None
         with (
-            patch.dict("os.environ", {
-                "ANTHROPIC_API_KEY": "test-key",
-                "CLAUDE_MODEL": "claude-3-haiku-20240307"
-            }),
+            patch.dict(
+                "os.environ",
+                {"ANTHROPIC_API_KEY": "test-key", "CLAUDE_MODEL": "claude-3-haiku-20240307"},
+            ),
         ):
             gen = _get_generator()
             assert gen.model == "claude-3-haiku-20240307"
@@ -762,7 +781,7 @@ class TestFastAPIAdditional:
             mock_get_gen.return_value = mock_gen
             payload = {
                 "description": "A web app with load balancer and database backend",
-                "max_elements": 3
+                "max_elements": 3,
             }
             resp = app_client.post("/generate", json=payload)
         assert resp.status_code == 200
@@ -783,12 +802,13 @@ class TestMCPToolsAdditional:
     @pytest.mark.asyncio
     async def test_generate_diagram_with_all_options(self, sample_spec: dict[str, Any]):
         from src.models import ExcalidrawDocument, DiagramResponse
+
         mock_resp = DiagramResponse.from_document(
-            ExcalidrawDocument(elements=[
-                ExcalidrawElement(id="e1", type=ElementType.RECTANGLE, x=0, y=0)
-            ]),
+            ExcalidrawDocument(
+                elements=[ExcalidrawElement(id="e1", type=ElementType.RECTANGLE, x=0, y=0)]
+            ),
             summary="Complete diagram",
-            model="claude-3-5-sonnet-20241022"
+            model="claude-3-5-sonnet-20241022",
         )
         with patch("src.server._get_generator") as mock_get_gen:
             mock_gen = MagicMock()
@@ -801,7 +821,7 @@ class TestMCPToolsAdditional:
                     "description": "Three-tier web architecture with load balancer",
                     "style": "detailed",
                     "max_elements": 25,
-                }
+                },
             )
 
         assert len(results) == 1
@@ -835,12 +855,15 @@ class TestMCPToolsAdditional:
 # src.__init__
 # ────────────────────────────────────────────────────────────────────────────
 
+
 class TestInit:
     def test_version_present(self):
         import src
+
         assert hasattr(src, "__version__")
         assert src.__version__ == "0.1.0"
 
     def test_author_present(self):
         import src
+
         assert hasattr(src, "__author__")
