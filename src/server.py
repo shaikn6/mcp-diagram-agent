@@ -46,7 +46,7 @@ def _get_generator() -> DiagramGenerator:
 mcp_server = Server("mcp-diagram-agent")
 
 
-@mcp_server.list_tools()  # type: ignore[misc, no-untyped-call]
+@mcp_server.list_tools()  # type: ignore[no-untyped-call]
 async def list_tools() -> list[Tool]:
     """Advertise the generate_diagram tool to MCP clients."""
     return [
@@ -86,7 +86,7 @@ async def list_tools() -> list[Tool]:
     ]
 
 
-@mcp_server.call_tool()  # type: ignore[misc]
+@mcp_server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool invocations from MCP clients."""
     if name != "generate_diagram":
