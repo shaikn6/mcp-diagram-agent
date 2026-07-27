@@ -62,6 +62,9 @@ jobs:
       - name: Install pip-audit
         run: pip install pip-audit
 
+      - name: Upgrade setuptools
+        run: pip install "setuptools>=83.0.0"
+
       - name: Install project deps
         run: pip install -e ".[dev]"
 
