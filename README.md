@@ -1,5 +1,8 @@
 # MCP Diagram Agent
 
+[![CI](https://github.com/shaikn6/mcp-diagram-agent/workflows/CI/badge.svg)](https://github.com/shaikn6/mcp-diagram-agent/actions/workflows/ci.yml)
+[![Security](https://github.com/shaikn6/mcp-diagram-agent/workflows/Security/badge.svg)](https://github.com/shaikn6/mcp-diagram-agent/actions/workflows/security.yml)
+[![Coverage: 95% gate](https://img.shields.io/badge/coverage-95%25%20gate-brightgreen.svg)](pyproject.toml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-1.0+-6E40C9.svg)](https://modelcontextprotocol.io/)
 [![Anthropic](https://img.shields.io/badge/Claude-Sonnet-d97757.svg)](https://docs.anthropic.com/)
