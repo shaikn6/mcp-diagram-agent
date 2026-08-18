@@ -9,8 +9,7 @@ All notable changes to this project are documented here.
 - Claude AI backend interpreting architecture descriptions and generating production-ready diagram JSON
 - Support for common diagram types: microservices, data pipelines, network topology, and entity-relationship
 - Excalidraw export with proper node positioning, edge routing, and label placement
-- Claude Desktop integration via MCP config with zero-dependency local installation
-- Batch mode for generating diagram sets from structured architecture documentation files
+- Claude Desktop integration via MCP config
 
 ### Changed
 - Production-ready CI/CD with 95%+ test coverage enforcement
