@@ -217,6 +217,36 @@ class TestDiagramGenerator:
         response = gen.generate(request)
         assert response.element_count <= 5
 
+    def test_generate_trim_preserves_connectivity(
+        self,
+        mock_anthropic_client: MagicMock,
+    ) -> None:
+        """A diagram trimmed to fewer elements than its node count must still
+        show at least one edge, not silently drop all connectivity."""
+        chain_spec = {
+            "summary": "chain",
+            "nodes": [
+                {"id": f"n{i}", "label": f"Node {i}", "layer": "service", "shape": "rectangle"}
+                for i in range(8)
+            ],
+            "edges": [{"from": f"n{i}", "to": f"n{i + 1}"} for i in range(7)],
+        }
+        mock_anthropic_client.messages.create.return_value.content[0].text = json.dumps(
+            chain_spec
+        )
+        gen = DiagramGenerator(client=mock_anthropic_client)
+        request = DiagramRequest(
+            description="chain system " * 5,
+            style="technical",
+            max_elements=6,
+        )
+        response = gen.generate(request)
+        arrow_count = sum(
+            1 for el in response.diagram["elements"] if el.get("type") == "arrow"
+        )
+        assert response.element_count <= 6
+        assert arrow_count > 0, "trimming dropped all edges even though nodes alone exceeded the cap"
+
     def test_generate_summary_included(
         self,
         generator: DiagramGenerator,

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcp-diagram-agent"
-version = "0.1.0"
+version = "1.0.0"
 description = "MCP server that converts natural language system descriptions into Excalidraw diagrams using Claude AI"
 readme = "README.md"
 license = { text = "MIT" }
