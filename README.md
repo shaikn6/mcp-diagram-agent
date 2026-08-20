@@ -229,7 +229,7 @@ Layer colors follow the [Catppuccin Mocha](https://github.com/catppuccin/catppuc
 
 ## Tests
 
-The deterministic core (parsing, layout, color mapping, arrow geometry, Pydantic serialization, and both transports) is covered by **149 tests** (`pytest --co -q`) across `test_server.py`, `test_diagram_generator.py`, and `test_comprehensive.py`. The project enforces a **95% coverage gate** (`--cov-fail-under=95` in `pyproject.toml`) so the non-LLM logic stays fully exercised.
+The deterministic core (parsing, layout, color mapping, arrow geometry, Pydantic serialization, and both transports) is covered by **150 tests** (`pytest --co -q`) across `test_server.py`, `test_diagram_generator.py`, and `test_comprehensive.py`. The project enforces a **95% coverage gate** (`--cov-fail-under=95` in `pyproject.toml`); the suite currently runs at **97.79%**.
 
 ```bash
 pytest                    # full suite with coverage
