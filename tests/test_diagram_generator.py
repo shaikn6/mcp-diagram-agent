@@ -231,9 +231,7 @@ class TestDiagramGenerator:
             ],
             "edges": [{"from": f"n{i}", "to": f"n{i + 1}"} for i in range(7)],
         }
-        mock_anthropic_client.messages.create.return_value.content[0].text = json.dumps(
-            chain_spec
-        )
+        mock_anthropic_client.messages.create.return_value.content[0].text = json.dumps(chain_spec)
         gen = DiagramGenerator(client=mock_anthropic_client)
         request = DiagramRequest(
             description="chain system " * 5,
@@ -241,11 +239,11 @@ class TestDiagramGenerator:
             max_elements=6,
         )
         response = gen.generate(request)
-        arrow_count = sum(
-            1 for el in response.diagram["elements"] if el.get("type") == "arrow"
-        )
+        arrow_count = sum(1 for el in response.diagram["elements"] if el.get("type") == "arrow")
         assert response.element_count <= 6
-        assert arrow_count > 0, "trimming dropped all edges even though nodes alone exceeded the cap"
+        assert arrow_count > 0, (
+            "trimming dropped all edges even though nodes alone exceeded the cap"
+        )
 
     def test_generate_summary_included(
         self,
