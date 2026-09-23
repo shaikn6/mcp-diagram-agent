@@ -11,8 +11,7 @@ from typing import Any
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
+from mcp.server.mcpserver import MCPServer
 from mcp.types import (
     TextContent,
     Tool,
@@ -43,50 +42,48 @@ def _get_generator() -> DiagramGenerator:
 # MCP server
 # ---------------------------------------------------------------------------
 
-mcp_server = Server("mcp-diagram-agent")
+mcp_server = MCPServer("mcp-diagram-agent")
+
+_GENERATE_DIAGRAM_TOOL = Tool(
+    name="generate_diagram",
+    description=(
+        "Convert a natural language system architecture description into an "
+        "Excalidraw-compatible JSON diagram. Returns the full Excalidraw document "
+        "that can be imported directly into excalidraw.com."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "description": {
+                "type": "string",
+                "description": "Natural language description of the system architecture",
+                "minLength": 10,
+                "maxLength": 4000,
+            },
+            "style": {
+                "type": "string",
+                "enum": ["technical", "simple", "detailed"],
+                "description": "Diagram complexity level",
+                "default": "technical",
+            },
+            "max_elements": {
+                "type": "integer",
+                "description": "Maximum number of diagram elements",
+                "minimum": 3,
+                "maximum": 50,
+                "default": 30,
+            },
+        },
+        "required": ["description"],
+    },
+)
 
 
-@mcp_server.list_tools()  # type: ignore[no-untyped-call]
 async def list_tools() -> list[Tool]:
     """Advertise the generate_diagram tool to MCP clients."""
-    return [
-        Tool(
-            name="generate_diagram",
-            description=(
-                "Convert a natural language system architecture description into an "
-                "Excalidraw-compatible JSON diagram. Returns the full Excalidraw document "
-                "that can be imported directly into excalidraw.com."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "description": {
-                        "type": "string",
-                        "description": "Natural language description of the system architecture",
-                        "minLength": 10,
-                        "maxLength": 4000,
-                    },
-                    "style": {
-                        "type": "string",
-                        "enum": ["technical", "simple", "detailed"],
-                        "description": "Diagram complexity level",
-                        "default": "technical",
-                    },
-                    "max_elements": {
-                        "type": "integer",
-                        "description": "Maximum number of diagram elements",
-                        "minimum": 3,
-                        "maximum": 50,
-                        "default": 30,
-                    },
-                },
-                "required": ["description"],
-            },
-        )
-    ]
+    return [_GENERATE_DIAGRAM_TOOL]
 
 
-@mcp_server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool invocations from MCP clients."""
     if name != "generate_diagram":
@@ -118,14 +115,39 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     ]
 
 
+async def generate_diagram(
+    description: str,
+    style: str = "technical",
+    max_elements: int = 30,
+) -> list[TextContent]:
+    """Convert a natural language system architecture description into an
+    Excalidraw-compatible JSON diagram.
+
+    Args:
+        description: Natural language description of the system architecture.
+        style: Diagram complexity level (technical, simple, or detailed).
+        max_elements: Maximum number of diagram elements.
+    """
+    return await call_tool(
+        "generate_diagram",
+        {
+            "description": description,
+            "style": style,
+            "max_elements": max_elements,
+        },
+    )
+
+
+mcp_server.add_tool(
+    generate_diagram,
+    name=_GENERATE_DIAGRAM_TOOL.name,
+    description=_GENERATE_DIAGRAM_TOOL.description,
+)
+
+
 async def run_mcp_server() -> None:
     """Start the MCP server over stdio (used by MCP clients like Claude Desktop)."""
-    async with stdio_server() as (read_stream, write_stream):
-        await mcp_server.run(
-            read_stream,
-            write_stream,
-            mcp_server.create_initialization_options(),
-        )
+    await mcp_server.run_stdio_async()
 
 
 # ---------------------------------------------------------------------------
