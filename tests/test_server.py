@@ -166,7 +166,7 @@ class TestMCPListTools:
     @pytest.mark.asyncio
     async def test_generate_diagram_tool_has_input_schema(self) -> None:
         tools = await list_tools()
-        schema = tools[0].inputSchema
+        schema = tools[0].input_schema
         assert "description" in schema["properties"]
         assert "description" in schema["required"]
 
