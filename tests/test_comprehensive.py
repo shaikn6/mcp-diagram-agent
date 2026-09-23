@@ -834,7 +834,7 @@ class TestMCPToolsAdditional:
     @pytest.mark.asyncio
     async def test_list_tools_schema_properties(self):
         tools = await list_tools()
-        schema = tools[0].inputSchema
+        schema = tools[0].input_schema
         props = schema["properties"]
         assert "style" in props
         assert "max_elements" in props
