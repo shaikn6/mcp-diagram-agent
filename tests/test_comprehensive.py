@@ -473,7 +473,6 @@ from src.diagram_generator import (
     _build_elements,
     _build_user_prompt,
     _layout_nodes,
-    _parse_claude_response,
 )
 
 
@@ -629,7 +628,7 @@ class TestDiagramGeneratorExtended:
             patch("src.diagram_generator.anthropic.Anthropic") as MockAnthropic,
             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "env-key"}),
         ):
-            gen = DiagramGenerator()
+            DiagramGenerator()
             MockAnthropic.assert_called_once_with(api_key=None)
 
     def test_model_property_returns_model(self):
@@ -702,7 +701,6 @@ class TestDiagramGeneratorExtended:
         }
         client = self._make_mock_client(spec)
         gen = DiagramGenerator(client=client)
-        req = DiagramRequest(description="Large system with many nodes description")
         # max_elements=3 (min allowed by pydantic)
         req_small = DiagramRequest(
             description="Large system with many nodes description", max_elements=3
@@ -716,6 +714,7 @@ class TestDiagramGeneratorExtended:
 # ────────────────────────────────────────────────────────────────────────────
 
 from fastapi.testclient import TestClient
+from src import server as server_mod
 from src.server import _get_generator, call_tool, create_app, list_tools
 
 
@@ -725,15 +724,11 @@ class TestGetGenerator:
 
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
             # Reset the global
-            import src.server as server_mod
-
             server_mod._generator = None
             gen = _get_generator()
             assert isinstance(gen, DiagramGenerator)
 
     def test_returns_same_instance_on_second_call(self):
-        import src.server as server_mod
-
         server_mod._generator = None
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
             gen1 = _get_generator()
@@ -741,8 +736,6 @@ class TestGetGenerator:
             assert gen1 is gen2
 
     def test_uses_claude_model_env(self):
-        import src.server as server_mod
-
         server_mod._generator = None
         with (
             patch.dict(
