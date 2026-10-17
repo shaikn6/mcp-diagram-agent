@@ -13,7 +13,7 @@ services:
       - "${PORT:-8000}:8000"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
-      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-3-5-sonnet-20241022}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - PORT=8000
     env_file:

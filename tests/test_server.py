@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from src.diagram_generator import DiagramGenerator
 from src.models import (
     DiagramResponse,
     ElementType,
@@ -201,3 +202,47 @@ class TestMCPCallTool:
     async def test_call_generate_diagram_invalid_args_raises(self) -> None:
         with pytest.raises(ValueError, match="Invalid request arguments"):
             await call_tool("generate_diagram", {"description": "too short"})
+
+
+# ---------------------------------------------------------------------------
+# Malformed LLM output -> 422 (not 500)
+# ---------------------------------------------------------------------------
+
+
+def _post_generate(llm_output: Any) -> Any:
+    """POST /generate with a real DiagramGenerator whose Anthropic client is faked."""
+    message = MagicMock()
+    message.content = [MagicMock(text=json.dumps(llm_output))]
+    fake_client = MagicMock()
+    fake_client.messages.create.return_value = message
+    with patch("src.server._get_generator", return_value=DiagramGenerator(client=fake_client)):
+        with TestClient(create_app(), raise_server_exceptions=False) as tc:
+            return tc.post("/generate", json={"description": "A web app with an API and a DB"})
+
+
+class TestSpecValidation:
+    @pytest.mark.parametrize(
+        "bad_spec",
+        [
+            {"nodes": "x"},
+            {"nodes": [None]},
+            {"nodes": []},
+            {"nodes": [{"label": "no id"}]},
+            {"nodes": [{"id": "a"}], "edges": "x"},
+            [None],
+        ],
+    )
+    def test_malformed_spec_returns_422(self, bad_spec: Any) -> None:
+        resp = _post_generate(bad_spec)
+        assert resp.status_code == 422
+        assert "invalid diagram spec" in resp.json()["detail"]
+
+    def test_duplicate_node_ids_return_422(self) -> None:
+        resp = _post_generate({"nodes": [{"id": "a", "label": "A"}, {"id": "a", "label": "B"}]})
+        assert resp.status_code == 422
+        assert "duplicate node id 'a'" in resp.json()["detail"]
+
+    def test_valid_spec_still_returns_200(self, sample_spec: dict[str, Any]) -> None:
+        resp = _post_generate(sample_spec)
+        assert resp.status_code == 200
+        assert resp.json()["element_count"] == 7

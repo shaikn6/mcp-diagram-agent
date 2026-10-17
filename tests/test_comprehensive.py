@@ -668,7 +668,7 @@ class TestDiagramGeneratorExtended:
 
     def test_generate_uses_default_summary_when_missing(self):
         spec = {
-            "nodes": [],
+            "nodes": [{"id": "a", "label": "A"}],
             "edges": [],
             # no "summary" key
         }
@@ -682,7 +682,7 @@ class TestDiagramGeneratorExtended:
 
     @pytest.mark.asyncio
     async def test_agenerate_calls_generate(self):
-        spec = {"summary": "async", "nodes": [], "edges": []}
+        spec = {"summary": "async", "nodes": [{"id": "a", "label": "A"}], "edges": []}
         client = self._make_mock_client(spec)
         gen = DiagramGenerator(client=client)
         req = DiagramRequest(description="Async architecture test description")

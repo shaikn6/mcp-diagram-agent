@@ -27,7 +27,7 @@ from .utils import (
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
+_DEFAULT_MODEL = "claude-sonnet-4-5"
 
 _SYSTEM_PROMPT = """\
 You are an expert software architect who generates Excalidraw diagram specifications.
@@ -82,11 +82,38 @@ def _parse_claude_response(raw: str) -> dict[str, Any]:
     """Parse Claude's JSON response, stripping any accidental markdown fences."""
     cleaned = strip_json_fences(raw)
     try:
-        return dict(json.loads(cleaned))
+        spec = json.loads(cleaned)
     except json.JSONDecodeError as exc:
         logger.error("Failed to parse Claude response as JSON: %s", exc)
         logger.debug("Raw response: %s", raw)
         raise ValueError(f"Claude returned non-JSON output: {exc}") from exc
+    _validate_spec(spec)
+    return dict(spec)
+
+
+def _validate_spec(spec: Any) -> None:
+    """Reject malformed specs so they surface as ValueError (HTTP 422), not a 500.
+
+    The model output is untrusted: ``nodes`` must be a non-empty list of dicts with
+    unique, non-empty string ids, and ``edges`` (optional) a list of dicts.
+    """
+    prefix = "Claude returned an invalid diagram spec: "
+    if not isinstance(spec, dict):
+        raise ValueError(prefix + "expected a JSON object")
+    nodes = spec.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        raise ValueError(prefix + "'nodes' must be a non-empty list")
+    seen: set[str] = set()
+    for node in nodes:
+        node_id = node.get("id") if isinstance(node, dict) else None
+        if not isinstance(node_id, str) or not node_id:
+            raise ValueError(prefix + "every node must be an object with a non-empty string 'id'")
+        if node_id in seen:
+            raise ValueError(prefix + f"duplicate node id {node_id!r}")
+        seen.add(node_id)
+    edges = spec.get("edges", [])
+    if not isinstance(edges, list) or not all(isinstance(e, dict) for e in edges):
+        raise ValueError(prefix + "'edges' must be a list of objects")
 
 
 def _layout_nodes(

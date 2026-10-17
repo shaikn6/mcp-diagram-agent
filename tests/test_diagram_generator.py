@@ -22,17 +22,19 @@ from src.models import DiagramRequest, DiagramResponse, ElementType
 
 class TestParseClaudeResponse:
     def test_parses_plain_json(self) -> None:
-        raw = '{"summary": "test", "nodes": [], "edges": []}'
+        raw = '{"summary": "test", "nodes": [{"id": "a", "label": "A"}], "edges": []}'
         result = _parse_claude_response(raw)
         assert result["summary"] == "test"
 
     def test_strips_json_code_fence(self) -> None:
-        raw = '```json\n{"summary": "fenced", "nodes": [], "edges": []}\n```'
+        raw = (
+            '```json\n{"summary": "fenced", "nodes": [{"id": "a", "label": "A"}], "edges": []}\n```'
+        )
         result = _parse_claude_response(raw)
         assert result["summary"] == "fenced"
 
     def test_strips_bare_code_fence(self) -> None:
-        raw = '```\n{"summary": "bare"}\n```'
+        raw = '```\n{"summary": "bare", "nodes": [{"id": "a", "label": "A"}]}\n```'
         result = _parse_claude_response(raw)
         assert result["summary"] == "bare"
 
@@ -257,7 +259,7 @@ class TestDiagramGenerator:
         )
 
     def test_model_property(self, generator: DiagramGenerator) -> None:
-        assert generator.model == "claude-3-5-sonnet-20241022"
+        assert generator.model == "claude-sonnet-4-5"
 
     def test_raises_on_non_json_response(self, mock_anthropic_client: MagicMock) -> None:
         mock_anthropic_client.messages.create.return_value.content[0].text = "Sorry, I cannot help."
