@@ -33,7 +33,7 @@ def _get_generator() -> DiagramGenerator:
     global _generator
     if _generator is None:
         api_key = os.environ.get("ANTHROPIC_API_KEY")
-        model = os.environ.get("CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
+        model = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-5")
         _generator = DiagramGenerator(api_key=api_key, model=model)
     return _generator
 

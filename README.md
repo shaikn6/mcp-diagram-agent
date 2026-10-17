@@ -154,7 +154,7 @@ curl -X POST http://localhost:8000/generate \
   },
   "element_count": 9,
   "description_summary": "Three-tier web architecture with React frontend, Node.js API, and MongoDB.",
-  "model_used": "claude-3-5-sonnet-20241022"
+  "model_used": "claude-sonnet-4-5"
 }
 ```
 
@@ -174,7 +174,7 @@ Interactive docs are available at `http://localhost:8000/docs`.
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | **Yes** | — | Your Anthropic API key |
-| `CLAUDE_MODEL` | No | `claude-3-5-sonnet-20241022` | Claude model to use |
+| `CLAUDE_MODEL` | No | `claude-sonnet-4-5` | Claude model to use |
 | `HOST` | No | `0.0.0.0` | Bind host for the REST server |
 | `PORT` | No | `8000` | Bind port for the REST server |
 | `LOG_LEVEL` | No | `info` | Logging level (`debug`, `info`, `warning`, `error`) |
@@ -182,6 +182,8 @@ Interactive docs are available at `http://localhost:8000/docs`.
 | `CORS_ORIGINS` | No | `*` | Comma-separated allowed CORS origins |
 
 Copy `.env.example` to `.env` to get started.
+
+> **Note:** `POST /generate` has no authentication, and `CORS_ORIGINS` defaults to `*`. Anyone who can reach the server can trigger Claude calls billed to your `ANTHROPIC_API_KEY`. Restrict `CORS_ORIGINS` and put the service behind an authenticating proxy or private network before exposing it.
 
 ---
 
@@ -230,7 +232,7 @@ Layer colors follow the [Catppuccin Mocha](https://github.com/catppuccin/catppuc
 
 ## Tests
 
-The deterministic core (parsing, layout, color mapping, arrow geometry, Pydantic serialization, and both transports) is covered by **150 tests** (`pytest --co -q`) across `test_server.py`, `test_diagram_generator.py`, and `test_comprehensive.py`. The project enforces a **95% coverage gate** (`--cov-fail-under=95` in `pyproject.toml`); the suite currently runs at **97.79%**.
+The deterministic core (parsing, layout, color mapping, arrow geometry, Pydantic serialization, and both transports) is covered by **158 tests** (`pytest --co -q`) across `test_server.py`, `test_diagram_generator.py`, and `test_comprehensive.py`. The project enforces a **95% coverage gate** (`--cov-fail-under=95` in `pyproject.toml`); the suite currently runs at **97.92%**.
 
 ```bash
 pytest                    # full suite with coverage
