@@ -1,15 +1,10 @@
-# MCP Diagram Agent
+# mcp-diagram-agent
 
-[![CI](https://github.com/shaikn6/mcp-diagram-agent/workflows/CI/badge.svg)](https://github.com/shaikn6/mcp-diagram-agent/actions/workflows/ci.yml)
-[![Security](https://github.com/shaikn6/mcp-diagram-agent/workflows/Security/badge.svg)](https://github.com/shaikn6/mcp-diagram-agent/actions/workflows/security.yml)
-[![Coverage: 95% gate](https://img.shields.io/badge/coverage-95%25%20gate-brightgreen.svg)](pyproject.toml)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![MCP](https://img.shields.io/badge/MCP-1.0+-6E40C9.svg)](https://modelcontextprotocol.io/)
-[![Anthropic](https://img.shields.io/badge/Claude-Sonnet-d97757.svg)](https://docs.anthropic.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![CI](https://github.com/shaikn6/mcp-diagram-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/shaikn6/mcp-diagram-agent/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 
-> **Turn a paragraph of text into a visual, editable architecture diagram — in seconds.**
+**An MCP server and REST API that turn a plain-text system description into an editable Excalidraw architecture diagram: Claude writes only a node/edge spec, and layout, styling and serialization are deterministic, unit-tested code.**
 
 MCP Diagram Agent is a [Model Context Protocol](https://modelcontextprotocol.io/) server that accepts a natural language description of a software system and returns an [Excalidraw](https://excalidraw.com/)-compatible JSON diagram you can import and edit immediately. Claude only ever produces a structured **node/edge spec** — the layout, layer-aware coloring, and Excalidraw serialization are deterministic Python, so the same spec always renders the same diagram.
 
@@ -75,7 +70,7 @@ The design keeps the LLM responsible only for *semantics* and the code responsib
 
 ---
 
-## Quick Start
+## Quickstart
 
 ```bash
 # 1. Clone
