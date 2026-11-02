@@ -111,9 +111,16 @@ def _validate_spec(spec: Any) -> None:
         if node_id in seen:
             raise ValueError(prefix + f"duplicate node id {node_id!r}")
         seen.add(node_id)
+        for field in ("label", "shape", "layer"):
+            if field in node and not isinstance(node[field], str):
+                raise ValueError(prefix + f"node {node_id!r} field {field!r} must be a string")
     edges = spec.get("edges", [])
     if not isinstance(edges, list) or not all(isinstance(e, dict) for e in edges):
         raise ValueError(prefix + "'edges' must be a list of objects")
+    for edge in edges:
+        for field in ("from", "to", "label", "style"):
+            if field in edge and not isinstance(edge[field], str):
+                raise ValueError(prefix + f"edge field {field!r} must be a string")
 
 
 def _layout_nodes(
@@ -280,7 +287,10 @@ class DiagramGenerator:
             ],
         )
 
-        raw_text: str = message.content[0].text  # type: ignore[union-attr]
+        block = message.content[0] if message.content else None
+        raw_text = getattr(block, "text", None)
+        if not isinstance(raw_text, str):
+            raise ValueError("Claude returned an empty or non-text response")
         logger.debug("Claude response (%d chars)", len(raw_text))
 
         spec = _parse_claude_response(raw_text)
