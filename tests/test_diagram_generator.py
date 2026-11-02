@@ -42,6 +42,23 @@ class TestParseClaudeResponse:
         with pytest.raises(ValueError, match="non-JSON"):
             _parse_claude_response("this is not json at all")
 
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            '{"nodes": [{"id": "a", "label": 123}]}',
+            '{"nodes": [{"id": "a", "shape": 5}]}',
+            '{"nodes": [{"id": "a", "layer": 1}]}',
+            '{"nodes": [{"id": "a"}], "edges": [{"from": ["x"], "to": "a"}]}',
+            '{"nodes": [{"id": "a"}], "edges": [{"from": "a", "to": "a", "label": 7}]}',
+            '{"nodes": [{"id": "a"}], "edges": [{"from": "a", "to": "a", "style": 9}]}',
+        ],
+    )
+    def test_rejects_non_string_fields(self, raw: str) -> None:
+        # Untrusted model output with wrong-typed fields must surface as a
+        # clean ValueError (HTTP 422), never an unhandled AttributeError/TypeError.
+        with pytest.raises(ValueError, match="invalid diagram spec"):
+            _parse_claude_response(raw)
+
 
 # ---------------------------------------------------------------------------
 # _layout_nodes
