@@ -76,15 +76,16 @@ The design keeps the LLM responsible only for *semantics* and the code responsib
 # 1. Clone
 git clone https://github.com/shaikn6/mcp-diagram-agent.git && cd mcp-diagram-agent
 
-# 2. Set your API key
-echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
+# 2. Set your keys
+printf 'ANTHROPIC_API_KEY=sk-ant-...\nMCP_API_KEY=choose-a-long-random-secret\n' > .env
 
 # 3. Start with Docker
 docker-compose up --build
 
-# 4. Generate a diagram
+# 4. Generate a diagram (auth required)
 curl -s -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $MCP_API_KEY" \
   -d '{"description": "Microservices app: API gateway, auth service, user service, PostgreSQL"}' \
   | python -m json.tool
 
@@ -129,6 +130,7 @@ Claude will call `generate_diagram` and return Excalidraw JSON you can paste dir
 ```bash
 curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $MCP_API_KEY" \
   -d '{
     "description": "Three-tier web app: React SPA, Node.js REST API, MongoDB Atlas",
     "style": "technical",
@@ -169,16 +171,18 @@ Interactive docs are available at `http://localhost:8000/docs`.
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | **Yes** | — | Your Anthropic API key |
+| `MCP_API_KEY` | **Yes** (for REST) | — | Shared secret required to call `POST /generate`. If unset, `/generate` returns `503` (fail-closed) |
+| `MCP_RATE_LIMIT_PER_MIN` | No | `30` | Max `POST /generate` requests per minute, per API key (falls back to client IP) |
 | `CLAUDE_MODEL` | No | `claude-sonnet-4-5` | Claude model to use |
 | `HOST` | No | `0.0.0.0` | Bind host for the REST server |
 | `PORT` | No | `8000` | Bind port for the REST server |
 | `LOG_LEVEL` | No | `info` | Logging level (`debug`, `info`, `warning`, `error`) |
 | `RELOAD` | No | `false` | Enable hot-reload (development only) |
-| `CORS_ORIGINS` | No | `*` | Comma-separated allowed CORS origins |
+| `CORS_ORIGINS` | No | _(none)_ | Comma-separated allowed CORS origins. Defaults to no cross-origin access; set it explicitly to opt in |
 
 Copy `.env.example` to `.env` to get started.
 
-> **Note:** `POST /generate` has no authentication, and `CORS_ORIGINS` defaults to `*`. Anyone who can reach the server can trigger Claude calls billed to your `ANTHROPIC_API_KEY`. Restrict `CORS_ORIGINS` and put the service behind an authenticating proxy or private network before exposing it.
+> **Authentication:** `POST /generate` requires an API key; `/health`, `/docs`, and `/redoc` stay open. Set `MCP_API_KEY` to a long random secret and send it on every request as either `Authorization: Bearer <key>` or `X-API-Key: <key>`. The key is compared in constant time. If `MCP_API_KEY` is unset the endpoint fails closed with `503`; a missing or wrong key returns `401`. Requests are rate limited to `MCP_RATE_LIMIT_PER_MIN` per key (default `30`), returning `429` when exceeded. `CORS_ORIGINS` no longer defaults to `*` — cross-origin access is denied unless you list origins explicitly. Keep the service behind a private network or authenticating proxy for defense in depth.
 
 ---
 

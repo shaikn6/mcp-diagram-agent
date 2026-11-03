@@ -11,6 +11,29 @@ from src.diagram_generator import DiagramGenerator
 from src.models import DiagramRequest
 
 # ---------------------------------------------------------------------------
+# Server auth fixtures
+# ---------------------------------------------------------------------------
+
+TEST_API_KEY = "test-api-key-123"
+
+
+@pytest.fixture(autouse=True)
+def _configure_server_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Configure a known API key and a generous rate limit for every test."""
+    from src.server import _rate_limiter
+
+    monkeypatch.setenv("MCP_API_KEY", TEST_API_KEY)
+    monkeypatch.setenv("MCP_RATE_LIMIT_PER_MIN", "100000")
+    _rate_limiter.reset()
+
+
+@pytest.fixture
+def auth_headers() -> dict[str, str]:
+    """Valid Authorization header for protected endpoints."""
+    return {"Authorization": f"Bearer {TEST_API_KEY}"}
+
+
+# ---------------------------------------------------------------------------
 # Sample data
 # ---------------------------------------------------------------------------
 

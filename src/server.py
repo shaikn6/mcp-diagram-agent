@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import hmac
 import logging
 import os
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from mcp.server.mcpserver import MCPServer
 from mcp.types import (
@@ -151,6 +153,85 @@ async def run_mcp_server() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Authentication + rate limiting (protect /generate from unbilled abuse)
+# ---------------------------------------------------------------------------
+
+_DEFAULT_RATE_LIMIT_PER_MIN = 30
+
+
+class _FixedWindowRateLimiter:
+    """In-process fixed-window rate limiter keyed by an opaque string."""
+
+    def __init__(self) -> None:
+        self._hits: dict[str, tuple[int, int]] = {}
+
+    def allow(self, key: str, limit: int, *, now: float | None = None) -> bool:
+        current = int(now if now is not None else time.time())
+        window = current - (current % 60)
+        start, count = self._hits.get(key, (window, 0))
+        if start != window:
+            start, count = window, 0
+        count += 1
+        self._hits[key] = (start, count)
+        return count <= limit
+
+    def reset(self) -> None:
+        self._hits.clear()
+
+
+_rate_limiter = _FixedWindowRateLimiter()
+
+
+def _rate_limit_per_min() -> int:
+    """Resolve the per-minute request budget from the environment."""
+    try:
+        value = int(os.environ.get("MCP_RATE_LIMIT_PER_MIN", ""))
+    except ValueError:
+        return _DEFAULT_RATE_LIMIT_PER_MIN
+    return value if value > 0 else _DEFAULT_RATE_LIMIT_PER_MIN
+
+
+def _presented_key(request: Request) -> str | None:
+    """Extract the caller's API key from the Authorization or X-API-Key header."""
+    authorization = request.headers.get("Authorization", "")
+    if authorization.startswith("Bearer "):
+        token = authorization[len("Bearer ") :].strip()
+        if token:
+            return token
+    api_key = request.headers.get("X-API-Key", "").strip()
+    return api_key or None
+
+
+async def rate_limit(request: Request) -> None:
+    """Fixed-window rate limit keyed by API key, falling back to client IP."""
+    key = _presented_key(request)
+    if key is None:
+        key = request.client.host if request.client else "unknown"
+    limit = _rate_limit_per_min()
+    if not _rate_limiter.allow(key, limit):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded: max {limit} requests per minute.",
+        )
+
+
+async def require_api_key(request: Request) -> None:
+    """Fail-closed API-key auth: 503 if unconfigured, 401 if missing/wrong."""
+    configured = os.environ.get("MCP_API_KEY", "")
+    if not configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service not configured: MCP_API_KEY is unset.",
+        )
+    presented = _presented_key(request)
+    if presented is None or not hmac.compare_digest(presented, configured):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key.",
+        )
+
+
+# ---------------------------------------------------------------------------
 # FastAPI REST API
 # ---------------------------------------------------------------------------
 
@@ -178,7 +259,9 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    cors_origins = os.environ.get("CORS_ORIGINS", "*").split(",")
+    # Default to no cross-origin access; operators opt in via CORS_ORIGINS.
+    cors_raw = os.environ.get("CORS_ORIGINS", "")
+    cors_origins = [o.strip() for o in cors_raw.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
@@ -200,6 +283,7 @@ def create_app() -> FastAPI:
         status_code=status.HTTP_200_OK,
         tags=["diagram"],
         summary="Generate an Excalidraw diagram from a natural language description",
+        dependencies=[Depends(rate_limit), Depends(require_api_key)],
     )
     async def generate(request: DiagramRequest) -> DiagramResponse:
         """Generate an Excalidraw diagram.

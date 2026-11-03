@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -48,15 +49,15 @@ def _make_mock_response(element_count: int = 4) -> DiagramResponse:
 
 
 @pytest.fixture
-def client_with_mock() -> TestClient:
+def client_with_mock(auth_headers: dict[str, str]) -> TestClient:
     """TestClient with the DiagramGenerator mocked out."""
     app = create_app()
-    with TestClient(app, raise_server_exceptions=False) as tc:
+    with TestClient(app, raise_server_exceptions=False, headers=auth_headers) as tc:
         yield tc
 
 
 @pytest.fixture
-def patched_client(sample_spec: dict[str, Any]) -> TestClient:
+def patched_client(sample_spec: dict[str, Any], auth_headers: dict[str, str]) -> TestClient:
     """TestClient where the generator always returns a predictable response."""
     mock_resp = _make_mock_response()
     app = create_app()
@@ -64,7 +65,7 @@ def patched_client(sample_spec: dict[str, Any]) -> TestClient:
         mock_gen = MagicMock()
         mock_gen.agenerate = AsyncMock(return_value=mock_resp)
         mock_get_gen.return_value = mock_gen
-        with TestClient(app) as tc:
+        with TestClient(app, headers=auth_headers) as tc:
             yield tc
 
 
@@ -215,9 +216,14 @@ def _post_generate(llm_output: Any) -> Any:
     message.content = [MagicMock(text=json.dumps(llm_output))]
     fake_client = MagicMock()
     fake_client.messages.create.return_value = message
+    headers = {"Authorization": f"Bearer {os.environ['MCP_API_KEY']}"}
     with patch("src.server._get_generator", return_value=DiagramGenerator(client=fake_client)):
         with TestClient(create_app(), raise_server_exceptions=False) as tc:
-            return tc.post("/generate", json={"description": "A web app with an API and a DB"})
+            return tc.post(
+                "/generate",
+                json={"description": "A web app with an API and a DB"},
+                headers=headers,
+            )
 
 
 class TestSpecValidation:
@@ -246,3 +252,110 @@ class TestSpecValidation:
         resp = _post_generate(sample_spec)
         assert resp.status_code == 200
         assert resp.json()["element_count"] == 7
+
+
+# ---------------------------------------------------------------------------
+# Authentication + rate limiting
+# ---------------------------------------------------------------------------
+
+from src.server import _FixedWindowRateLimiter, _rate_limit_per_min, _rate_limiter
+
+_AUTH_PAYLOAD = {"description": "A web app with load balancer and database backend"}
+
+
+@pytest.fixture
+def mock_gen_app() -> Any:
+    """A real app whose generator is mocked, for exercising auth/rate-limit guards."""
+    mock_resp = _make_mock_response()
+    app = create_app()
+    with patch("src.server._get_generator") as mock_get_gen:
+        mock_gen = MagicMock()
+        mock_gen.agenerate = AsyncMock(return_value=mock_resp)
+        mock_get_gen.return_value = mock_gen
+        yield app
+
+
+class TestGenerateAuth:
+    def test_missing_key_returns_401(self, mock_gen_app: Any) -> None:
+        with TestClient(mock_gen_app, raise_server_exceptions=False) as tc:
+            resp = tc.post("/generate", json=_AUTH_PAYLOAD)
+        assert resp.status_code == 401
+
+    def test_wrong_key_returns_401(self, mock_gen_app: Any) -> None:
+        with TestClient(mock_gen_app, raise_server_exceptions=False) as tc:
+            resp = tc.post(
+                "/generate", json=_AUTH_PAYLOAD, headers={"Authorization": "Bearer wrong"}
+            )
+        assert resp.status_code == 401
+
+    def test_x_api_key_header_accepted(self, mock_gen_app: Any) -> None:
+        key = os.environ["MCP_API_KEY"]
+        with TestClient(mock_gen_app) as tc:
+            resp = tc.post("/generate", json=_AUTH_PAYLOAD, headers={"X-API-Key": key})
+        assert resp.status_code == 200
+
+    def test_unconfigured_key_returns_503(
+        self, mock_gen_app: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("MCP_API_KEY", raising=False)
+        with TestClient(mock_gen_app, raise_server_exceptions=False) as tc:
+            resp = tc.post("/generate", json=_AUTH_PAYLOAD, headers={"X-API-Key": "anything"})
+        assert resp.status_code == 503
+
+    def test_health_open_without_key(self, mock_gen_app: Any) -> None:
+        with TestClient(mock_gen_app) as tc:
+            resp = tc.get("/health")
+        assert resp.status_code == 200
+
+
+class TestRateLimit:
+    def test_exceeding_limit_returns_429(
+        self, mock_gen_app: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MCP_RATE_LIMIT_PER_MIN", "2")
+        _rate_limiter.reset()
+        headers = {"Authorization": f"Bearer {os.environ['MCP_API_KEY']}"}
+        with TestClient(mock_gen_app) as tc:
+            assert tc.post("/generate", json=_AUTH_PAYLOAD, headers=headers).status_code == 200
+            assert tc.post("/generate", json=_AUTH_PAYLOAD, headers=headers).status_code == 200
+            resp = tc.post("/generate", json=_AUTH_PAYLOAD, headers=headers)
+        assert resp.status_code == 429
+        assert "Rate limit exceeded" in resp.json()["detail"]
+
+
+class TestRateLimiterUnit:
+    def test_allows_up_to_limit_then_blocks(self) -> None:
+        rl = _FixedWindowRateLimiter()
+        assert rl.allow("k", 2, now=0.0) is True
+        assert rl.allow("k", 2, now=1.0) is True
+        assert rl.allow("k", 2, now=2.0) is False
+
+    def test_new_window_resets_count(self) -> None:
+        rl = _FixedWindowRateLimiter()
+        assert rl.allow("k", 1, now=0.0) is True
+        assert rl.allow("k", 1, now=1.0) is False
+        assert rl.allow("k", 1, now=60.0) is True
+
+    def test_reset_clears_state(self) -> None:
+        rl = _FixedWindowRateLimiter()
+        rl.allow("k", 1, now=0.0)
+        rl.reset()
+        assert rl.allow("k", 1, now=0.0) is True
+
+
+class TestRateLimitConfig:
+    def test_default_when_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("MCP_RATE_LIMIT_PER_MIN", raising=False)
+        assert _rate_limit_per_min() == 30
+
+    def test_default_when_invalid(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MCP_RATE_LIMIT_PER_MIN", "abc")
+        assert _rate_limit_per_min() == 30
+
+    def test_default_when_non_positive(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MCP_RATE_LIMIT_PER_MIN", "0")
+        assert _rate_limit_per_min() == 30
+
+    def test_honors_configured_value(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MCP_RATE_LIMIT_PER_MIN", "5")
+        assert _rate_limit_per_min() == 5
