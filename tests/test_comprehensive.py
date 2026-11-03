@@ -750,9 +750,9 @@ class TestGetGenerator:
 
 class TestFastAPIAdditional:
     @pytest.fixture
-    def app_client(self) -> TestClient:
+    def app_client(self, auth_headers: dict[str, str]) -> TestClient:
         app = create_app()
-        with TestClient(app, raise_server_exceptions=False) as tc:
+        with TestClient(app, raise_server_exceptions=False, headers=auth_headers) as tc:
             yield tc
 
     def test_generate_value_error_returns_422(self, app_client):
