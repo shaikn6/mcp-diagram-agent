@@ -1,5 +1,7 @@
 # mcp-diagram-agent
 
+> **Describe a system in plain English, get back an editable Excalidraw architecture diagram. An MCP server for Claude.**
+
 [![CI](https://github.com/shaikn6/mcp-diagram-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/shaikn6/mcp-diagram-agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
