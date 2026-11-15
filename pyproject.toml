@@ -44,7 +44,7 @@ dev = [
 
 [project.scripts]
 mcp-diagram-agent = "src.server:main"
-mcp-diagram-agent-mcp = "src.server:run_mcp_server"
+mcp-diagram-agent-mcp = "src.server:main_mcp"
 
 [project.urls]
 Homepage = "https://github.com/shaikn6/mcp-diagram-agent"
@@ -56,6 +56,7 @@ packages = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = [
     "--cov=src",
@@ -98,8 +99,6 @@ select = [
     "RUF", # ruff-specific
 ]
 ignore = [
-    "ANN101",  # missing type annotation for self
-    "ANN102",  # missing type annotation for cls
     "S101",    # use of assert (needed in tests)
     "ANN401",  # Any is fine for Excalidraw dicts
     "N815",    # camelCase fields required by Excalidraw JSON API

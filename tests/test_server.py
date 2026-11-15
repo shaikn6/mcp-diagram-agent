@@ -16,7 +16,7 @@ from src.models import (
     ExcalidrawDocument,
     ExcalidrawElement,
 )
-from src.server import call_tool, create_app, list_tools
+from src.server import call_tool, create_app, list_tools, mcp_server
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -359,3 +359,55 @@ class TestRateLimitConfig:
     def test_honors_configured_value(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("MCP_RATE_LIMIT_PER_MIN", "5")
         assert _rate_limit_per_min() == 5
+
+
+class TestRegisteredMcpTool:
+    """Assert the schema MCP clients actually receive.
+
+    ``mcp_server.list_tools()`` returns what a client sees after ``add_tool``
+    reflected ``generate_diagram``'s annotated parameters. These bounds must match
+    the documented contract (and ``DiagramRequest``), not just the hand-written
+    ``_GENERATE_DIAGRAM_TOOL``.
+    """
+
+    async def test_single_tool_named_generate_diagram(self) -> None:
+        tools = await mcp_server.list_tools()
+        assert [t.name for t in tools] == ["generate_diagram"]
+
+    async def test_schema_advertises_documented_constraints(self) -> None:
+        tool = (await mcp_server.list_tools())[0]
+        props = tool.input_schema["properties"]
+        assert tool.input_schema["required"] == ["description"]
+        assert props["description"]["minLength"] == 10
+        assert props["description"]["maxLength"] == 4000
+        assert props["style"]["pattern"] == "^(technical|simple|detailed)$"
+        assert props["style"]["default"] == "technical"
+        assert props["max_elements"]["minimum"] == 3
+        assert props["max_elements"]["maximum"] == 50
+        assert props["max_elements"]["default"] == 30
+
+    async def test_registered_schema_matches_hand_written_bounds(self) -> None:
+        registered = (await mcp_server.list_tools())[0].input_schema["properties"]
+        hand = (await list_tools())[0].input_schema["properties"]
+        assert registered["description"]["minLength"] == hand["description"]["minLength"]
+        assert registered["max_elements"]["maximum"] == hand["max_elements"]["maximum"]
+
+
+class TestMcpConsoleEntry:
+    """``main_mcp`` is the sync console-script entry; it must drive the
+    coroutine ``run_mcp_server`` rather than leave it un-awaited."""
+
+    def test_main_mcp_loads_env_and_runs(self) -> None:
+        from src import server as server_mod
+
+        with (
+            patch.object(server_mod, "load_dotenv") as load,
+            patch("asyncio.run") as run,
+        ):
+            server_mod.main_mcp()
+        load.assert_called_once()
+        run.assert_called_once()
+        # The object handed to asyncio.run must be the server coroutine.
+        (coro,) = run.call_args.args
+        assert coro.__qualname__ == "run_mcp_server"
+        coro.close()

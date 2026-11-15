@@ -8,9 +8,10 @@ import os
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Annotated, Any
 
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from mcp.server.mcpserver import MCPServer
@@ -18,7 +19,9 @@ from mcp.types import (
     TextContent,
     Tool,
 )
+from pydantic import Field
 
+from . import __version__
 from .diagram_generator import DiagramGenerator
 from .models import DiagramRequest, DiagramResponse, HealthResponse
 
@@ -118,12 +121,32 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
 
 async def generate_diagram(
-    description: str,
-    style: str = "technical",
-    max_elements: int = 30,
+    description: Annotated[
+        str,
+        Field(
+            description="Natural language description of the system architecture",
+            min_length=10,
+            max_length=4000,
+        ),
+    ],
+    style: Annotated[
+        str,
+        Field(
+            description="Diagram complexity level",
+            pattern="^(technical|simple|detailed)$",
+        ),
+    ] = "technical",
+    max_elements: Annotated[
+        int,
+        Field(description="Maximum number of diagram elements", ge=3, le=50),
+    ] = 30,
 ) -> list[TextContent]:
     """Convert a natural language system architecture description into an
     Excalidraw-compatible JSON diagram.
+
+    The parameter constraints above are mirrored in ``_GENERATE_DIAGRAM_TOOL`` and are
+    reflected into the schema MCP clients see, so the advertised contract matches what
+    ``DiagramRequest`` enforces at call time.
 
     Args:
         description: Natural language description of the system architecture.
@@ -150,6 +173,18 @@ mcp_server.add_tool(
 async def run_mcp_server() -> None:
     """Start the MCP server over stdio (used by MCP clients like Claude Desktop)."""
     await mcp_server.run_stdio_async()
+
+
+def main_mcp() -> None:
+    """Sync entry-point for the MCP stdio server (console script).
+
+    ``run_mcp_server`` is a coroutine, so a console script cannot call it directly;
+    this wrapper drives it with ``asyncio.run`` after loading ``.env``.
+    """
+    import asyncio
+
+    load_dotenv()
+    asyncio.run(run_mcp_server())
 
 
 # ---------------------------------------------------------------------------
@@ -253,7 +288,7 @@ def create_app() -> FastAPI:
             "Convert natural language system architecture descriptions into "
             "Excalidraw-compatible diagrams using Claude AI."
         ),
-        version="0.1.0",
+        version=__version__,
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
@@ -314,6 +349,7 @@ app = create_app()
 
 def main() -> None:
     """Entry-point for the REST API server."""
+    load_dotenv()
     host = os.environ.get("HOST", "0.0.0.0")  # noqa: S104
     port = int(os.environ.get("PORT", "8000"))
     log_level = os.environ.get("LOG_LEVEL", "info").lower()
@@ -337,6 +373,7 @@ if __name__ == "__main__":
     import sys
 
     if "--mcp" in sys.argv:
+        load_dotenv()
         asyncio.run(run_mcp_server())
     else:
         main()
