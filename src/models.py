@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from . import __version__
+
 
 class ElementType(StrEnum):
     """Supported Excalidraw element types."""
@@ -241,5 +243,5 @@ class HealthResponse(BaseModel):
     """Health check response."""
 
     status: str = Field(default="ok")
-    version: str = Field(default="0.1.0")
+    version: str = Field(default=__version__)
     service: str = Field(default="mcp-diagram-agent")

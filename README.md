@@ -8,7 +8,7 @@
 
 **An MCP server and REST API that turn a plain-text system description into an editable Excalidraw architecture diagram: Claude writes only a node/edge spec, and layout, styling and serialization are deterministic, unit-tested code.**
 
-MCP Diagram Agent is a [Model Context Protocol](https://modelcontextprotocol.io/) server that accepts a natural language description of a software system and returns an [Excalidraw](https://excalidraw.com/)-compatible JSON diagram you can import and edit immediately. Claude only ever produces a structured **node/edge spec** — the layout, layer-aware coloring, and Excalidraw serialization are deterministic Python, so the same spec always renders the same diagram.
+MCP Diagram Agent is a [Model Context Protocol](https://modelcontextprotocol.io/) server that accepts a natural language description of a software system and returns an [Excalidraw](https://excalidraw.com/)-compatible JSON diagram you can import and edit immediately. Claude only ever produces a structured **node/edge spec** — the layout, layer-aware coloring, and Excalidraw serialization are deterministic Python, so the same spec always produces the same layout, colors, and geometry (element ids mix in a timestamp, so the id strings differ between runs).
 
 The same generator is exposed over **two transports**: an MCP `stdio` server (the `generate_diagram` tool, for Claude Desktop and other MCP clients) and a **FastAPI REST API** (`POST /generate`) for any HTTP client.
 
@@ -67,7 +67,7 @@ The design keeps the LLM responsible only for *semantics* and the code responsib
 3. **Deterministic layered layout.** `_layout_nodes()` groups nodes by semantic layer (`client → gateway → service → queue → data → external → default`), assigns each layer its own column (+280px per layer) and stacks nodes vertically within a layer (+140px each). Layout is pure arithmetic — no randomness, no LLM.
 4. **Layer-aware styling.** `_build_elements()` maps each node's `shape` string to an `ElementType` enum and resolves stroke/fill via `color_for_layer()` using the [Catppuccin Mocha](https://github.com/catppuccin/catppuccin) palette; edges become Excalidraw arrows whose points are computed by `build_arrow_points()` (center-right of source → center-left of target), honoring solid/dashed/dotted styles.
 5. **Connectivity-preserving trim.** If Claude's raw spec exceeds `max_elements`, the generator trims the spec *before* building elements: it reserves a small edge budget (at least 1, up to a quarter of the cap) instead of dropping every edge in favor of one more node, keeps nodes up to the remaining budget, then keeps only the edges that connect two surviving nodes. An 8-node chain (`n0 → n1 → … → n7`) trimmed to `max_elements=6`, for example, keeps nodes `n0`–`n4` plus the `n0 → n1` edge — 6 elements that are still connected, instead of 6 isolated boxes.
-6. **Validated, importable output.** Elements are assembled into an `ExcalidrawDocument` (Pydantic v2) and serialized through `model_dump_excalidraw()`, which emits the exact key shape Excalidraw expects per element type. Hex colors are enforced by a validator (`#RRGGBB` or `transparent`). The result is wrapped in a `DiagramResponse` (`element_count` clamped to `max_elements`).
+6. **Validated, importable output.** Elements are assembled into an `ExcalidrawDocument` (Pydantic v2) and serialized through `model_dump_excalidraw()`, which emits the key shape Excalidraw expects per element type. A validator requires every color to start with `#` (or be the literal `transparent`). The result is wrapped in a `DiagramResponse` (`element_count` clamped to `max_elements`).
 7. **Non-blocking by default.** `agenerate()` runs the synchronous `generate()` in a thread pool via `loop.run_in_executor()`, so the async REST/MCP handlers never block the event loop on the Anthropic call.
 
 ---
@@ -106,6 +106,7 @@ Add this server to your MCP client (e.g. Claude Desktop `claude_desktop_config.j
     "diagram-agent": {
       "command": "python",
       "args": ["-m", "src.server", "--mcp"],
+      "cwd": "/absolute/path/to/mcp-diagram-agent",
       "env": {
         "ANTHROPIC_API_KEY": "sk-ant-..."
       }
@@ -113,6 +114,11 @@ Add this server to your MCP client (e.g. Claude Desktop `claude_desktop_config.j
   }
 }
 ```
+
+`python -m src.server --mcp` imports the `src` package, so set `cwd` to the repo
+root (as above). If you `pip install .` instead, use the installed console script
+`mcp-diagram-agent-mcp` as the `command` and drop `cwd` and `args`. Both entry
+points load a local `.env` (via `python-dotenv`) if one is present.
 
 Then in Claude Desktop, use the `generate_diagram` tool:
 
@@ -140,7 +146,7 @@ curl -X POST http://localhost:8000/generate \
   }'
 ```
 
-**Response:**
+**Response** (representative — labels, counts, and summary depend on the model's spec):
 
 ```json
 {
@@ -161,7 +167,7 @@ curl -X POST http://localhost:8000/generate \
 
 ```bash
 curl http://localhost:8000/health
-# {"status":"ok","version":"0.1.0","service":"mcp-diagram-agent"}
+# {"status":"ok","version":"1.0.0","service":"mcp-diagram-agent"}
 ```
 
 Interactive docs are available at `http://localhost:8000/docs`.
@@ -231,9 +237,22 @@ Layer colors follow the [Catppuccin Mocha](https://github.com/catppuccin/catppuc
 
 ---
 
+## Limitations
+
+This is an alpha tool. Known constraints, honestly stated:
+
+- **Labels may not render as bound text on import.** Node labels are emitted as a `text` field on the shape, and edge labels as an arrow `label` object. Excalidraw renders container and arrow labels from *separate bound text elements* (linked via `boundElements` / `containerId`), which this version does not emit yet. Boxes, arrows, positions, and colors import cleanly; depending on your Excalidraw version the text may not appear until you re-type it. This is the top item on the roadmap.
+- **Arrows are not bound to nodes.** `startBinding` and `endBinding` are `null`, so arrows are positioned by geometry but do not follow a box when you drag it in Excalidraw.
+- **One LLM call, no self-repair.** The generator makes a single `messages.create` call. If the model returns a spec that fails validation, the request fails with a `422` rather than retrying or repairing — there is no multi-turn correction loop.
+- **Layout is column-by-layer only.** `_layout_nodes()` places each semantic layer in its own column and stacks nodes vertically. There is no edge-crossing minimization or force-directed layout, so dense graphs can overlap arrows.
+- **Rate limiting is in-process.** The fixed-window limiter lives in a single process; it does not coordinate across multiple workers or hosts. Put a shared gateway in front for multi-instance deployments.
+- **Output quality depends on the model.** Node/edge *semantics* come from Claude, so ambiguous or very large descriptions can yield incomplete diagrams. `max_elements` trims oversized specs but cannot add missing structure.
+
+---
+
 ## Tests
 
-The deterministic core (parsing, layout, color mapping, arrow geometry, Pydantic serialization, and both transports) is covered by **158 tests** (`pytest --co -q`) across `test_server.py`, `test_diagram_generator.py`, and `test_comprehensive.py`. The project enforces a **95% coverage gate** (`--cov-fail-under=95` in `pyproject.toml`); the suite currently runs at **97.92%**.
+The deterministic core (parsing, layout, color mapping, arrow geometry, Pydantic serialization, the advertised MCP tool schema, and both transports) is covered by **184 tests** (`pytest --co -q`) across `test_server.py`, `test_diagram_generator.py`, and `test_comprehensive.py`. The Anthropic client is mocked, so the whole suite runs offline with no API key. The project enforces a **95% coverage gate** (`--cov-fail-under=95` in `pyproject.toml`); the suite currently runs at **98%**.
 
 ```bash
 pytest                    # full suite with coverage

@@ -226,9 +226,11 @@ class TestDiagramResponse:
 
 class TestHealthResponse:
     def test_defaults(self):
+        import src
+
         h = HealthResponse()
         assert h.status == "ok"
-        assert h.version == "0.1.0"
+        assert h.version == src.__version__
         assert h.service == "mcp-diagram-agent"
 
 
@@ -854,7 +856,7 @@ class TestInit:
         import src
 
         assert hasattr(src, "__version__")
-        assert src.__version__ == "0.1.0"
+        assert src.__version__ == "1.0.0"
 
     def test_author_present(self):
         import src

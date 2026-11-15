@@ -294,3 +294,38 @@ class TestDiagramGenerator:
         response = await generator.agenerate(basic_request)
         assert isinstance(response, DiagramResponse)
         assert response.element_count > 0
+
+
+class TestResponseEdgeCases:
+    """Error and fidelity behaviours that the HTTP/MCP layers rely on."""
+
+    def test_raises_on_empty_content(self, mock_anthropic_client: MagicMock) -> None:
+        mock_anthropic_client.messages.create.return_value.content = []
+        gen = DiagramGenerator(client=mock_anthropic_client)
+        with pytest.raises(ValueError, match="empty or non-text"):
+            gen.generate(DiagramRequest(description="test architecture description here"))
+
+    def test_raises_on_non_text_block(self, mock_anthropic_client: MagicMock) -> None:
+        block = MagicMock()
+        block.text = None  # e.g. a tool-use block, not a text block
+        mock_anthropic_client.messages.create.return_value.content = [block]
+        gen = DiagramGenerator(client=mock_anthropic_client)
+        with pytest.raises(ValueError, match="empty or non-text"):
+            gen.generate(DiagramRequest(description="test architecture description here"))
+
+    def test_arrows_are_unbound_known_limitation(
+        self, generator: DiagramGenerator, basic_request: DiagramRequest
+    ) -> None:
+        """Characterise current output: arrows are not bound to their nodes.
+
+        Documented in the README Limitations section. This test pins the
+        behaviour so changing it is a deliberate, reviewed decision.
+        """
+        diagram = generator.generate(basic_request).diagram
+        arrows = [e for e in diagram["elements"] if e["type"] == "arrow"]
+        assert arrows
+        for arrow in arrows:
+            assert arrow["startBinding"] is None
+            assert arrow["endBinding"] is None
+        for box in (e for e in diagram["elements"] if e["type"] == "rectangle"):
+            assert box["boundElements"] == []
