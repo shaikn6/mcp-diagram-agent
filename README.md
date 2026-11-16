@@ -78,8 +78,9 @@ The design keeps the LLM responsible only for *semantics* and the code responsib
 # 1. Clone
 git clone https://github.com/shaikn6/mcp-diagram-agent.git && cd mcp-diagram-agent
 
-# 2. Set your keys
-printf 'ANTHROPIC_API_KEY=sk-ant-...\nMCP_API_KEY=choose-a-long-random-secret\n' > .env
+# 2. Set your keys (a real Anthropic key is needed: every /generate call makes one paid model call)
+export ANTHROPIC_API_KEY=sk-ant-... MCP_API_KEY=choose-a-long-random-secret
+printf 'ANTHROPIC_API_KEY=%s\nMCP_API_KEY=%s\n' "$ANTHROPIC_API_KEY" "$MCP_API_KEY" > .env
 
 # 3. Start with Docker
 docker-compose up --build
@@ -246,6 +247,8 @@ This is an alpha tool. Known constraints, honestly stated:
 - **One LLM call, no self-repair.** The generator makes a single `messages.create` call. If the model returns a spec that fails validation, the request fails with a `422` rather than retrying or repairing — there is no multi-turn correction loop.
 - **Layout is column-by-layer only.** `_layout_nodes()` places each semantic layer in its own column and stacks nodes vertically. There is no edge-crossing minimization or force-directed layout, so dense graphs can overlap arrows.
 - **Rate limiting is in-process.** The fixed-window limiter lives in a single process; it does not coordinate across multiple workers or hosts. Put a shared gateway in front for multi-instance deployments.
+- **Descriptions leave the machine and are partly logged.** Every request sends the full description to the Anthropic API, and the REST server logs its first 80 characters at `INFO` level (the default). Do not send secrets in descriptions; set `LOG_LEVEL=warning` to stop that log line.
+- **No quality evaluation.** The tests check the deterministic code with a mocked model; there is no benchmark of how often the model's spec matches the described system.
 - **Output quality depends on the model.** Node/edge *semantics* come from Claude, so ambiguous or very large descriptions can yield incomplete diagrams. `max_elements` trims oversized specs but cannot add missing structure.
 
 ---
