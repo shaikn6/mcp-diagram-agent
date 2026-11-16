@@ -46,7 +46,7 @@ mypy src/                    # type check
 ## Pull Request Guidelines
 
 1. **One concern per PR.** Bug fix, feature, or refactor — not all three.
-2. **Tests are required.** New code needs unit tests; 80% coverage minimum.
+2. **Tests are required.** New code needs unit tests; total coverage must stay at or above the 95% gate in `pyproject.toml`.
 3. **Follow Conventional Commits** for the PR title: `feat:`, `fix:`, `docs:`,
    `refactor:`, `test:`, `chore:`, `perf:`.
 4. **No secrets** — never commit `.env` or API keys.
